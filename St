@@ -133,9 +133,9 @@ end
 
 -- --- HUB WINDOW ---
 local Window = Rayfield:CreateWindow({
-   Name = "Gemini Ultimate Hub | Ocean Edition",
-   LoadingTitle = "Syncing with the Tides...",
-   LoadingSubtitle = "By Gemini",
+   Name = "best dig n hatch a brainrot script",
+   LoadingTitle = "lets digin...",
+   LoadingSubtitle = "iamtaco",
    ConfigurationSaving = { Enabled = false },
    Theme = "Ocean", -- Updated Theme
 })
@@ -144,7 +144,7 @@ local MainTab = Window:CreateTab("Automation", 4483362458)
 local TPTab = Window:CreateTab("Teleports", 4483362458)
 
 MainTab:CreateToggle({
-   Name = "Master Auto-Dig",
+   Name = "Auto-Dig",
    CurrentValue = false,
    Callback = function(Value) isDigEnabled = Value if Value then teleport(POS_A) end end,
 })
@@ -154,7 +154,7 @@ MainTab:CreateToggle({
    CurrentValue = false,
    Callback = function(Value) isStealEnabled = Value if Value then teleport(POS_A) end end,
 })
-MainTab:CreateLabel("⚠️ dont turn on diging while turning on stealer script")
+MainTab:CreateLabel("⚠️ dont turn on diging while turning on stealer script it breaks the script")
 
 TPTab:CreateButton({Name = "TP Last Land", Callback = function() teleport(POS_A) end})
 TPTab:CreateButton({Name = "TP Home", Callback = function() teleport(POS_B) end})
