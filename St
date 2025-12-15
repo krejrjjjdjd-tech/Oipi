@@ -1,0 +1,223 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- --- SERVICES ---
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local GuiService = game:GetService("GuiService")
+local Player = game.Players.LocalPlayer
+local Camera = game.Workspace.CurrentCamera
+
+-- --- CONFIGURATION ---
+local WANTED_WORDS = {"myt", "sec", "ex", "cosmi"} 
+local SAFE_WORDS = {"comm", "rare", "le", "ep", "uncomm"} 
+local STOP_TEXT = "dis" 
+local TOOL_NAME_PART = "Shovel" 
+local BAT_NAME = "bat" 
+
+local POS_A = Vector3.new(-471, 31, -31)
+local POS_B = Vector3.new(5, 31, 17)
+
+-- Settings
+local SLOW_GRIND_WAIT, RARITY_SPAM_WAIT = 0.5, 0.05
+local TP_DELAY_TIME, TRIGGER_DISTANCE = 7, 25 
+local NORMAL_MIDDLE_BOX, RARITY_MIDDLE_BOX = 30, 80
+local STEAL_DISTANCE, CLICK_SPEED, UP_OFFSET = 10, 0.01, 100 
+local MIN_X, MAX_X, MIN_Z, MAX_Z = -471, -15, -31, 58
+
+-- --- STATE ---
+local isDigEnabled, isStealEnabled = false, false
+
+-- --- HELPER FUNCTIONS ---
+
+local function teleport(pos)
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = (typeof(pos) == "Vector3" and CFrame.new(pos) or pos)
+    end
+end
+
+local function doClick(x, y)
+    local inset = GuiService:GetGuiInset()
+    VirtualInputManager:SendMouseButtonEvent(x, y + inset.Y, 0, true, game, 0)
+    task.wait(0.01)
+    VirtualInputManager:SendMouseButtonEvent(x, y + inset.Y, 0, false, game, 0)
+end
+
+local function getDisButton()
+    local pGui = Player:FindFirstChild("PlayerGui")
+    if not pGui then return nil end
+    for _, v in pairs(pGui:GetDescendants()) do
+        if (v:IsA("TextButton") or v:IsA("TextLabel")) and v.Text and string.find(string.lower(v.Text), STOP_TEXT) then
+            return v
+        end
+    end
+    return nil
+end
+
+local function forceDisVisibility(state)
+    local btn = getDisButton()
+    if btn then
+        btn.Visible = state
+        if state == true then
+            local p = btn.Parent
+            while p and p:IsA("GuiObject") do
+                p.Visible = true
+                p = p.Parent
+            end
+        end
+    end
+end
+
+local function ensureTool(namePart)
+    local char = Player.Character
+    if not char or not char:FindFirstChild("Humanoid") then return end
+    local found = false
+    for _, t in pairs(char:GetChildren()) do
+        if t:IsA("Tool") and string.find(string.lower(t.Name), string.lower(namePart)) then found = true break end
+    end
+    if not found then
+        local bp = Player:FindFirstChild("Backpack")
+        if bp then
+            for _, t in pairs(bp:GetChildren()) do
+                if t:IsA("Tool") and string.find(string.lower(t.Name), string.lower(namePart)) then
+                    char.Humanoid:EquipTool(t)
+                    break
+                end
+            end
+        end
+    end
+end
+
+local function checkWordsNearby(wordList)
+    local char = Player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    for _, v in pairs(game.Workspace:GetDescendants()) do
+        if v:IsA("TextLabel") and v.Text ~= "" then
+            local txt = string.lower(v.Text)
+            for _, word in pairs(wordList) do
+                if string.find(txt, word) then
+                    local part = v:FindFirstAncestorWhichIsA("BasePart") or v.Parent
+                    if part:IsA("BasePart") and (char.HumanoidRootPart.Position - part.Position).Magnitude <= TRIGGER_DISTANCE then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function getStealTarget()
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
+            local root = p.Character.HumanoidRootPart
+            local head = p.Character.Head
+            if (root.Position.X >= MIN_X and root.Position.X <= MAX_X) and (root.Position.Z >= MIN_Z and root.Position.Z <= MAX_Z) then
+                for _, v in pairs(game.Workspace:GetDescendants()) do
+                    if v:IsA("TextLabel") and v.Text ~= "" then
+                        local txt = string.lower(v.Text)
+                        for _, word in pairs(WANTED_WORDS) do
+                            if string.find(txt, word) then
+                                local textPart = v:FindFirstAncestorWhichIsA("BasePart") or v.Parent
+                                if textPart:IsA("BasePart") and (textPart.Position - head.Position).Magnitude < STEAL_DISTANCE then
+                                    return root 
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- --- HUB WINDOW ---
+local Window = Rayfield:CreateWindow({
+   Name = "Gemini Ultimate Hub | Ocean Edition",
+   LoadingTitle = "Syncing with the Tides...",
+   LoadingSubtitle = "By Gemini",
+   ConfigurationSaving = { Enabled = false },
+   Theme = "Ocean", -- Updated Theme
+})
+
+local MainTab = Window:CreateTab("Automation", 4483362458)
+local TPTab = Window:CreateTab("Teleports", 4483362458)
+
+MainTab:CreateToggle({
+   Name = "Master Auto-Dig",
+   CurrentValue = false,
+   Callback = function(Value) isDigEnabled = Value if Value then teleport(POS_A) end end,
+})
+
+MainTab:CreateToggle({
+   Name = "Auto Steal",
+   CurrentValue = false,
+   Callback = function(Value) isStealEnabled = Value if Value then teleport(POS_A) end end,
+})
+MainTab:CreateLabel("⚠️ dont turn on diging while turning on stealer script")
+
+TPTab:CreateButton({Name = "TP Last Land", Callback = function() teleport(POS_A) end})
+TPTab:CreateButton({Name = "TP Home", Callback = function() teleport(POS_B) end})
+
+-- --- LOOPS ---
+
+task.spawn(function()
+    while true do
+        if isStealEnabled then ensureTool(BAT_NAME) end
+        task.wait(0.1)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if isDigEnabled then
+            ensureTool(TOOL_NAME_PART)
+            local vs = Camera.ViewportSize
+            local wanted = checkWordsNearby(WANTED_WORDS)
+            local safe = checkWordsNearby(SAFE_WORDS)
+            
+            if wanted then
+                forceDisVisibility(false)
+                local start = tick()
+                while isDigEnabled and checkWordsNearby(WANTED_WORDS) and (tick()-start) < TP_DELAY_TIME do
+                    doClick(vs.X/2 + math.random(-RARITY_MIDDLE_BOX/2, RARITY_MIDDLE_BOX/2), vs.Y/2 + math.random(-RARITY_MIDDLE_BOX/2, RARITY_MIDDLE_BOX/2))
+                    task.wait(RARITY_SPAM_WAIT)
+                end
+                teleport(POS_B); task.wait(1.5); teleport(POS_A)
+            elseif safe then
+                forceDisVisibility(true)
+                doClick(vs.X/2 + math.random(-NORMAL_MIDDLE_BOX/2, NORMAL_MIDDLE_BOX/2), vs.Y/2 + math.random(-NORMAL_MIDDLE_BOX/2, NORMAL_MIDDLE_BOX/2))
+                task.wait(SLOW_GRIND_WAIT)
+                local dBtn = getDisButton()
+                if dBtn and not checkWordsNearby(WANTED_WORDS) then
+                    doClick(dBtn.AbsolutePosition.X + (dBtn.AbsoluteSize.X/2), dBtn.AbsolutePosition.Y + (dBtn.AbsoluteSize.Y/2))
+                    task.wait(SLOW_GRIND_WAIT)
+                end
+            else
+                doClick(vs.X/2 + math.random(-NORMAL_MIDDLE_BOX/2, NORMAL_MIDDLE_BOX/2), vs.Y/2 + math.random(-NORMAL_MIDDLE_BOX/2, NORMAL_MIDDLE_BOX/2))
+                task.wait(SLOW_GRIND_WAIT)
+            end
+        end
+        task.wait(0.01)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if isStealEnabled then
+            local target = getStealTarget()
+            if target then
+                while isStealEnabled and target.Parent and getStealTarget() do
+                    ensureTool(BAT_NAME)
+                    teleport(target.CFrame * CFrame.new(0, 0, 1.2))
+                    local vs = Camera.ViewportSize
+                    doClick(vs.X/2 + math.random(-40, 40), (vs.Y/2 - UP_OFFSET) + math.random(-20, 20))
+                    task.wait(CLICK_SPEED)
+                end
+                teleport(POS_B); task.wait(1.5); teleport(POS_A)
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
