@@ -135,7 +135,7 @@ end
 local Window = Rayfield:CreateWindow({
    Name = "best dig n hatch a brainrot script",
    LoadingTitle = "lets digin...",
-   LoadingSubtitle = "iamtaco",
+   LoadingSubtitle = " by iamtaco",
    ConfigurationSaving = { Enabled = false },
    Theme = "Ocean", -- Updated Theme
 })
